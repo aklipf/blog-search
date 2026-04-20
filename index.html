@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en-US">
+  <head>
+    <meta charset="utf-8" />
+    <title>hello-wasm example</title>
+  </head>
+  <body>
+    <div id="my-element"></div>
+    <script type="module">
+      import init, { run } from "./pkg/search_engin.js";
+
+      init().then(() => {
+        run();
+      });
+    </script>
+  </body>
+</html>
+

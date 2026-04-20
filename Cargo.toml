@@ -3,4 +3,28 @@ name = "search-engin"
 version = "0.1.0"
 edition = "2024"
 
+[lib]
+crate-type = ["cdylib"]
+
 [dependencies]
+js-sys = "0.3.95"
+serde-xml-rs = "0.8.2"
+serde = {version = "1.0.228", features = ["derive"]}
+wasm-bindgen = "0.2.118"
+wasm-bindgen-futures = "0.4.68"
+web-sys = {version = "0.3.95", features = [
+    "Window",
+    "Document",
+    "Element",
+    "HtmlElement",
+    "console",
+    "EventTarget",
+    "Event",
+    "FetchEvent",
+    "MouseEvent",
+    "Response",
+    "ReadableStream",
+    "ReadableStreamDefaultReader",
+    "Text"
+]}
+
