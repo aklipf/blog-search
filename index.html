@@ -10,9 +10,54 @@
       import init, { run } from "./pkg/search_engin.js";
 
       init().then(() => {
-        run();
+        run({
+          search: {
+            "feed_url": "./search.xml"
+          },
+          ui: {
+            "template_id": "element",
+            "list_id": "list"
+          }
+        });
       });
     </script>
-  </body>
+<div class="flex flex-col rounded-md shadow-md overflow-hidden hidden"  id="element">
+  <div class="flex-shrink-0">
+    <a href="" aria-label="Sans titre" id="link_img">
+      <img class="h-48 w-full object-cover" src=""  id="img" alt="Sans titre" />
+    </a>
+  </div>
+  <div class="flex-1 bg-white p-6 flex flex-col justify-between">
+    <div class="flex-1">
+      <a href="" class="block"  id="link_title">
+        <h3 class="mt-2 text-xl leading-7 font-semibold text-gray-900"  id="title"></h3>
+      </a>
+      <p class="mt-3 text-base leading-6 text-gray-500", id="description"></p>
+    </div>
+    <div class="mt-6 flex items-center">
+      <div>
+        
+      </div>
+    </div>
+  </div>
+    <div class="mt-6 flex items-center">
+      <div>
+        <div class="flex text-sm leading-5 text-gray-500">
+          <time id="date">
+          </time>
+          <span class="mx-1">
+            &middot;
+          </span>
+          <span id="cooking-time">
+          </span>
+        </div>
+      </div>
+    </div>
+</div>
+
+<div id="list">
+</div>
+
+</body>
 </html>
 
