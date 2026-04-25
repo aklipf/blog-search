@@ -1,15 +1,9 @@
-use serde::{Serialize, Deserialize};
-use crate::ui::{self,Field};
 use crate::search;
+use crate::ui::{self, Field};
+use serde::Deserialize;
 
-pub struct Edit{
-    id:String,
-    field:Field,
-    value:String,
-}
-
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 pub struct Config {
-    pub search:search::Config,
-    pub ui:ui::Config,
+    pub search: search::Config,
+    pub ui: ui::Config,
 }

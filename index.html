@@ -5,18 +5,65 @@
     <title>hello-wasm example</title>
   </head>
   <body>
-    <div id="my-element"></div>
     <script type="module">
       import init, { run } from "./pkg/search_engin.js";
 
       init().then(() => {
         run({
           search: {
-            "feed_url": "./search.xml"
+            "feed_url": "./search.xml",
+            "match_fields": ["title", "author", "taxonomies"]
           },
           ui: {
             "template_id": "element",
-            "list_id": "list"
+            "list_id": "list",
+            "edit": [
+              {
+                "id": "title",
+                "html_field": {"type": "InnerHTML"},
+                "article_field": "title",
+              },
+              {
+                "id": "link_img",
+                "html_field": {"type": "Attribute", "value": "aria-label"},
+                "article_field": "title",
+              },
+              {
+                "id": "img",
+                "html_field": {"type": "Attribute", "value": "alt"},
+                "article_field": "title",
+              },
+              {
+                "id": "img",
+                "html_field": {"type": "Attribute", "value": "src"},
+                "article_field": "img",
+              },
+              {
+                "id": "link_img",
+                "html_field": {"type": "Attribute", "value": "href"},
+                "article_field": "link",
+              },
+              {
+                "id": "link_title",
+                "html_field": {"type": "Attribute", "value": "href"},
+                "article_field": "link",
+              },
+              {
+                "id": "description",
+                "html_field": {"type": "InnerHTML"},
+                "article_field": "description",
+              },
+              {
+                "id": "date",
+                "html_field": {"type": "InnerHTML"},
+                "article_field": "date",
+              },
+              {
+                "id": "cooking-time",
+                "html_field": {"type": "InnerHTML"},
+                "article_field": "cooking-time",
+              }
+            ]
           }
         });
       });
@@ -24,7 +71,7 @@
 <div class="flex flex-col rounded-md shadow-md overflow-hidden hidden"  id="element">
   <div class="flex-shrink-0">
     <a href="" aria-label="Sans titre" id="link_img">
-      <img class="h-48 w-full object-cover" src=""  id="img" alt="Sans titre" />
+      <img src="" id="img" alt="Sans titre" />
     </a>
   </div>
   <div class="flex-1 bg-white p-6 flex flex-col justify-between">
@@ -40,18 +87,9 @@
       </div>
     </div>
   </div>
-    <div class="mt-6 flex items-center">
-      <div>
-        <div class="flex text-sm leading-5 text-gray-500">
-          <time id="date">
-          </time>
-          <span class="mx-1">
-            &middot;
-          </span>
-          <span id="cooking-time">
-          </span>
-        </div>
-      </div>
+    <div>
+      <time id="date"></time>
+      <span id="cooking-time"></span>
     </div>
 </div>
 

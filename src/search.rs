@@ -1,40 +1,41 @@
 use fuzzy_matcher::FuzzyMatcher;
 use fuzzy_matcher::skim::SkimMatcherV2;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::JsFuture;
 use web_sys::{Response, Text, Window, window};
+use js_sys::Promise;
+use thiserror::Error;
 
 use crate::log;
 
-use std::collections::HashSet;
-use std::ops::BitAnd;
+use std::collections::{HashMap, HashSet};
+use std::ops::{BitAnd,BitOr};
+
+#[derive(Error, Debug)]
+pub enum Error {
+    #[error("syntax error {error:?}")]
+    SyntaxError { error: serde_xml_rs::Error },
+    #[error("js error {error:?}")]
+    JsError { error: JsValue },
+}
 
 #[derive(Deserialize, Debug)]
-pub struct Config{
-    feed_url: String
+pub struct Config {
+    feed_url: String,
+    match_fields: Vec<String>,
 }
 
 #[derive(Deserialize, Debug)]
 #[serde(rename = "search")]
 pub struct Search {
-    item: Vec<Recipe>,
+    item: Vec<Article>,
 }
 
 #[derive(Deserialize, Debug, Clone)]
-pub struct Recipe {
-    pub title: String,
-    pub author: String,
-    pub img: String,
-    pub link: String,
-    pub description: String,
-    pub date: String,
-    #[serde(rename = "cooking-time")]
-    pub cooking_time: String,
-    pub tags: Items,
-    pub ingredients: Items,
-    pub seasons: Items,
-    pub tools: Items,
+pub struct Article {
+    pub taxonomies: HashMap<String, Items>,
+    pub fields: HashMap<String, String>,
 }
 
 #[derive(Deserialize, Debug, Clone)]
@@ -43,25 +44,70 @@ pub struct Items {
     item: Vec<String>,
 }
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct Filters {
-    tags: HashSet<String>,
-    ingredients: HashSet<String>,
-    seasons: HashSet<String>,
-    tools: HashSet<String>,
+    taxonomies: HashMap<String, HashSet<String>>,
+}
+
+impl From<HashMap<String, Items>> for Filters {
+    fn from(values: HashMap<String, Items>) -> Self {
+        Filters {
+            taxonomies: values
+                .into_iter()
+                .map(|(k, v)| (k, v.item.iter().cloned().collect()))
+                .collect(),
+        }
+    }
 }
 
 pub struct SearchEngin {
     index: Search,
     filters: Filters,
+    match_fields: Vec<String>,
 }
 
 impl Filters {
     pub fn is_empty(&self) -> bool {
-        self.tags.is_empty()
-            && self.ingredients.is_empty()
-            && self.seasons.is_empty()
-            && self.tools.is_empty()
+        if self.taxonomies.is_empty() {
+            return true;
+        }
+        for (_, taxonomy) in self.taxonomies.iter() {
+            if !taxonomy.is_empty() {
+                return false;
+            }
+        }
+        return true;
+    }
+}
+
+impl BitOr<&Filters> for Filters {
+    type Output = Self;
+
+    fn bitor(self, rhs: &Self) -> Self::Output {
+        let empty : HashSet<String> = Default::default();
+        let self_keys: HashSet<String> = self.taxonomies.keys().cloned().collect();
+        let rhs_keys: HashSet<String> = rhs.taxonomies.keys().cloned().collect();
+        let keys = self_keys.union(&rhs_keys);
+        Self {
+            taxonomies: keys
+                .into_iter()
+                .map(|key| {
+                    (
+                        key.clone(),
+                        self.taxonomies
+                            .get(key)
+                            .unwrap_or(&empty)
+                            .union(
+                                rhs.taxonomies
+                                    .get(key)
+                                    .unwrap_or(&empty),
+                            )
+                            .cloned()
+                            .collect(),
+                    )
+                })
+                .collect(),
+        }
     }
 }
 
@@ -69,27 +115,36 @@ impl BitAnd<&Filters> for Filters {
     type Output = Self;
 
     fn bitand(self, rhs: &Self) -> Self::Output {
+        let empty : HashSet<String> = Default::default();
+        let self_keys: HashSet<String> = self.taxonomies.keys().cloned().collect();
+        let rhs_keys: HashSet<String> = rhs.taxonomies.keys().cloned().collect();
+        let keys = self_keys.intersection(&rhs_keys);
         Self {
-            tags: self.tags.intersection(&rhs.tags).cloned().collect(),
-            ingredients: self
-                .ingredients
-                .intersection(&rhs.ingredients)
-                .cloned()
+            taxonomies: keys
+                .into_iter()
+                .map(|key| {
+                    (
+                        key.clone(),
+                        self.taxonomies
+                            .get(key)
+                            .unwrap_or(&empty)
+                            .intersection(
+                                rhs.taxonomies
+                                    .get(key)
+                                    .unwrap_or(&empty),
+                            )
+                            .cloned()
+                            .collect(),
+                    )
+                })
                 .collect(),
-            seasons: self.seasons.intersection(&rhs.seasons).cloned().collect(),
-            tools: self.tools.intersection(&rhs.tools).cloned().collect(),
         }
     }
 }
 
-impl Recipe {
+impl Article {
     pub fn filters(&self) -> Filters {
-        Filters {
-            tags: self.tags.item.iter().cloned().collect(),
-            ingredients: self.ingredients.item.iter().cloned().collect(),
-            seasons: self.seasons.item.iter().cloned().collect(),
-            tools: self.tools.item.iter().cloned().collect(),
-        }
+        self.taxonomies.clone().into()
     }
 
     fn matched(&self, filters: &Filters) -> bool {
@@ -98,60 +153,40 @@ impl Recipe {
 }
 
 impl SearchEngin {
-    pub async fn new(config:&Config) -> Result<Self, JsValue> {
+    pub async fn new(config: &Config) -> Result<Self, Error> {
         let window = window().expect("no global `window` exists");
         let index = Self::load(&window, config.feed_url.as_str()).await?;
         let mut engin = SearchEngin {
             index,
             filters: Default::default(),
+            match_fields: config.match_fields.clone()
         };
         engin.filters = engin.unify_taxonomies();
 
         Ok(engin)
     }
 
-    async fn load(window: &Window, file: &str) -> Result<Search, JsValue> {
-        let resp: Response = JsFuture::from(window.fetch_with_str(file))
-            .await?
-            .dyn_into()?;
+    async fn load(window: &Window, file: &str) -> Result<Search, Error> {
+        let future :JsFuture = window.fetch_with_str(file).into();
+        let resp: Response = future.await.map_err(|error| Error::JsError{error})?
+            .dyn_into().map_err(|error| Error::JsError{error})?;
 
-        let text: Text = JsFuture::from(resp.text()?).await?.into();
+        let promise :Promise= resp.text().map_err(|error| Error::JsError{error})?;
+        let text: Text = JsFuture::from(promise).await.map_err(|error| Error::JsError{error})?.into();
 
         let index: Search =
-            serde_xml_rs::from_str(&text.as_string().unwrap()).expect("Failed to deserialize");
+            serde_xml_rs::from_str(&text.as_string().unwrap_or_default()).map_err(|error| Error::SyntaxError{error})?;
         Ok(index)
     }
 
     fn unify_taxonomies(&self) -> Filters {
-        let mut tags: HashSet<String> = Default::default();
-        let mut ingredients: HashSet<String> = Default::default();
-        let mut seasons: HashSet<String> = Default::default();
-        let mut tools: HashSet<String> = Default::default();
+        let mut filters:Filters=Default::default();
 
-        for recipe in self.index.item.iter() {
-            for tag in recipe.tags.item.iter() {
-                tags.insert(tag.clone());
-            }
-
-            for ingredient in recipe.ingredients.item.iter() {
-                ingredients.insert(ingredient.clone());
-            }
-
-            for season in recipe.seasons.item.iter() {
-                seasons.insert(season.clone());
-            }
-
-            for tool in recipe.tools.item.iter() {
-                tools.insert(tool.clone());
-            }
+        for article in self.index.item.iter() {
+            filters = filters | &article.taxonomies.clone().into();
         }
 
-        Filters {
-            tags,
-            ingredients,
-            seasons,
-            tools,
-        }
+        filters
     }
 
     fn fuzzy_search(&self, keyword: &str, keywords: &HashSet<String>) -> Vec<String> {
@@ -168,73 +203,50 @@ impl SearchEngin {
     }
 
     pub fn detect_filters(&self, querry: &str) -> Filters {
-        let mut tags: HashSet<String> = Default::default();
-        let mut ingredients: HashSet<String> = Default::default();
-        let mut seasons: HashSet<String> = Default::default();
-        let mut tools: HashSet<String> = Default::default();
+        let mut filters:Filters=Default::default();
 
         for keyword in querry.split_whitespace() {
-            for w in self.fuzzy_search(keyword, &self.filters.tags).into_iter() {
-                tags.insert(w);
-            }
-            for w in self
-                .fuzzy_search(keyword, &self.filters.ingredients)
-                .into_iter()
-            {
-                ingredients.insert(w);
-            }
-            for w in self
-                .fuzzy_search(keyword, &self.filters.seasons)
-                .into_iter()
-            {
-                seasons.insert(w);
-            }
-            for w in self.fuzzy_search(keyword, &self.filters.tools).into_iter() {
-                tools.insert(w);
+            for (key,taxonomy) in &self.filters.taxonomies{
+                for token in self.fuzzy_search(keyword, &taxonomy).into_iter(){
+                    if let Some(tax)=filters.taxonomies.get_mut(key){
+                        tax.insert(token);
+                    }
+                    else{
+                        filters.taxonomies.insert(key.clone(),[token].into_iter().collect());
+                    }
+                }
             }
         }
-        Filters {
-            tags,
-            ingredients,
-            seasons,
-            tools,
-        }
+
+        filters
     }
 
-    pub fn search(&self, querry: &str) -> Vec<Recipe> {
+    pub fn search(&self, query: &str) -> Vec<Article> {
         let matcher = SkimMatcherV2::default().ignore_case();
 
-        let filters = self.detect_filters(querry);
+        let filters = self.detect_filters(query);
 
-        let mut recipes: Vec<Recipe> = Default::default();
+        let mut articles: Vec<Article> = Default::default();
 
-        for recipe in self.index.item.iter() {
-            if recipe.matched(&filters) {
-                recipes.push(recipe.clone());
-                log(format!("filters: {filters:#?} {}", recipe.title));
+        for article in self.index.item.iter() {
+            if article.matched(&filters) {
+                articles.push(article.clone());
+                log(format!("filters: {filters:#?} {}", article.fields.get("title").unwrap()));
                 continue;
             }
 
-            for pattern in querry.split_whitespace() {
-                if matcher
-                    .fuzzy_match(recipe.title.as_str(), pattern)
-                    .is_some()
-                {
-                    recipes.push(recipe.clone());
-                    log(format!("title: {pattern:#?} {}", recipe.title));
-                    break;
-                }
-                if matcher
-                    .fuzzy_match(recipe.author.as_str(), pattern)
-                    .is_some()
-                {
-                    recipes.push(recipe.clone());
-                    log(format!("author {pattern:#?} {}", recipe.author));
-                    break;
+            for pattern in query.split_whitespace() {
+                for field in &self.match_fields{
+                    if let Some(value) = article.fields.get(field.as_str()){
+                        if matcher.fuzzy_match(value, pattern).is_some(){
+                            articles.push(article.clone());
+                            log(format!("{field}: {pattern:#?} {}",article.fields.get("title").unwrap()));
+                        }
+                    }
                 }
             }
         }
 
-        recipes
+        articles
     }
 }
