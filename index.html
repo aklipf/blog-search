@@ -12,11 +12,23 @@
         run({
           search: {
             "feed_url": "./search.xml",
-            "match_fields": ["title", "author", "taxonomies"]
+            "match_fields": ["title", "author"]
           },
-          ui: {
+          ui:{
+            "page":{
             "template_id": "element",
             "list_id": "list",
+            "inner": {
+              "template_id": "tag",
+              "list_id": "tags",
+              "edit": [
+                {
+                  "id": "link_tag",
+                  "html_field": {"type": "InnerHTML"},
+                  "article_field": "taxonomies.tags"
+                }
+              ]
+            },
             "edit": [
               {
                 "id": "title",
@@ -64,6 +76,7 @@
                 "article_field": "cooking-time",
               }
             ]
+          }
           }
         });
       });

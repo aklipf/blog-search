@@ -27,8 +27,36 @@ pub struct Config {
 }
 
 #[derive(Deserialize, Debug)]
-#[serde(rename = "search")]
 pub struct Search {
+    taxonomies: Vec<Taxonomies>,
+    pages: Vec<Article>,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct Taxonomy {
+    name: String,
+    terms: Vec<Terms>,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct Terms {
+    name: String,
+    terms: Vec<Term>,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct Term {
+    name: String,
+    link: String,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct Taxonomies {
+    item: Vec<Taxonomy>,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct Pages {
     item: Vec<Article>,
 }
 

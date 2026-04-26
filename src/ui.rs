@@ -14,9 +14,15 @@ pub struct EditConfig{
 }
 
 #[derive(Deserialize, Debug, Clone)]
-pub struct Config {
+pub struct Config{
+    page: PageConfig
+}
+
+#[derive(Deserialize, Debug, Clone)]
+pub struct PageConfig {
     template_id: String,
     list_id: String,
+    inner: Option<Box<Self>>,
     edit: Vec<EditConfig>,
 }
 
@@ -40,7 +46,7 @@ pub enum Error {
 pub struct Ui {
     window: Window,
     document: Document,
-    config: Config,
+    config: PageConfig,
 }
 
 #[derive(Deserialize, Debug, Clone)]
@@ -91,7 +97,7 @@ impl Ui {
     pub fn new(config: &Config) -> Self {
         let window = window().expect("no global `window` exists");
         let document = window.document().expect("should have a document on window");
-        Self { window, document ,config:config.clone()}
+        Self { window, document ,config:config.page.clone()}
     }
 
     pub fn get_querry(&self) -> Result<String, Error> {
