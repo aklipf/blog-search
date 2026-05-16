@@ -1,7 +1,7 @@
 use fuzzy_matcher::skim::{SkimMatcherV2, SkimScoreConfig};
 use fuzzy_matcher::FuzzyMatcher;
 use js_sys::Promise;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::JsFuture;
@@ -27,7 +27,7 @@ pub struct Config {
     skim: SkimConfig,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Default)]
 pub struct SkimConfig {
     #[serde(default)]
     score_match: Option<i32>,
@@ -47,22 +47,6 @@ pub struct SkimConfig {
     bonus_consecutive: Option<i32>,
     #[serde(default)]
     penalty_case_mismatch: Option<i32>,
-}
-
-impl Default for SkimConfig {
-    fn default() -> Self {
-        Self {
-            score_match: None,
-            gap_start: None,
-            gap_extension: None,
-            bonus_first_char_multiplier: None,
-            bonus_head: None,
-            bonus_break: None,
-            bonus_camel: None,
-            bonus_consecutive: None,
-            penalty_case_mismatch: None,
-        }
-    }
 }
 
 #[derive(Deserialize, Debug)]
@@ -99,13 +83,13 @@ pub struct Pages {
     item: Vec<Article>,
 }
 
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct Article {
     pub taxonomies: HashMap<String, Items>,
     pub fields: HashMap<String, String>,
 }
 
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct Items {
     #[serde(default)]
     item: Vec<String>,
@@ -162,19 +146,7 @@ impl SearchEngin {
                 .penalty_case_mismatch
                 .unwrap_or(def.penalty_case_mismatch),
         };
-        log(format!(
-            "SkimScoreConfig {{ score_match: {}, gap_start: {}, gap_extension: {}, bonus_first_char_multiplier: {}, bonus_head: {}, bonus_break: {}, bonus_camel: {}, bonus_consecutive: {}, penalty_case_mismatch: {} }}",
-            skim_config.score_match,
-            skim_config.gap_start,
-            skim_config.gap_extension,
-            skim_config.bonus_first_char_multiplier,
-            skim_config.bonus_head,
-            skim_config.bonus_break,
-            skim_config.bonus_camel,
-            skim_config.bonus_consecutive,
-            skim_config.penalty_case_mismatch,
-        ));
-        log(format!("{index:#?}"));
+
         let engin = SearchEngin {
             index,
             match_fields: config.match_fields.clone(),

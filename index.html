@@ -6,82 +6,73 @@
   </head>
   <body>
     <script type="module">
-      import init, { run } from "./pkg/search_engin.js";
+      import init, { load } from "./pkg/search_engin.js";
 
-      init().then(() => {
-        run({
+      init().then(async () => {
+        // Two-phase API: load once, search many times
+        const engine = await load({
           search: {
             "feed_url": "./search.xml",
             "match_fields": ["title", "author"],
             "skim": {}
           },
-          ui:{
-            "page":{
-            "template_id": "element",
-            "list_id": "list",
-            "inner": {
-              "template_id": "tag",
-              "list_id": "tags",
+          ui: {
+            "page": {
+              "template_id": "element",
+              "list_id": "list",
+              "inner": {
+                "template_id": "tag",
+                "list_id": "tags",
+                "edit": [
+                  {
+                    "id": "link_tag",
+                    "html_field": {"type": "InnerHTML"},
+                    "article_field": "taxonomies.tags"
+                  }
+                ]
+              },
               "edit": [
-                {
-                  "id": "link_tag",
-                  "html_field": {"type": "InnerHTML"},
-                  "article_field": "taxonomies.tags"
-                }
+                {"id": "title", "html_field": {"type": "InnerHTML"}, "article_field": "title"},
+                {"id": "link_img", "html_field": {"type": "Attribute", "value": "aria-label"}, "article_field": "title"},
+                {"id": "img", "html_field": {"type": "Attribute", "value": "alt"}, "article_field": "title"},
+                {"id": "img", "html_field": {"type": "Attribute", "value": "src"}, "article_field": "img"},
+                {"id": "link_img", "html_field": {"type": "Attribute", "value": "href"}, "article_field": "link"},
+                {"id": "link_title", "html_field": {"type": "Attribute", "value": "href"}, "article_field": "link"},
+                {"id": "description", "html_field": {"type": "InnerHTML"}, "article_field": "description"},
+                {"id": "date", "html_field": {"type": "InnerHTML"}, "article_field": "date"},
+                {"id": "cooking-time", "html_field": {"type": "InnerHTML"}, "article_field": "cooking-time"}
               ]
-            },
-            "edit": [
-              {
-                "id": "title",
-                "html_field": {"type": "InnerHTML"},
-                "article_field": "title",
-              },
-              {
-                "id": "link_img",
-                "html_field": {"type": "Attribute", "value": "aria-label"},
-                "article_field": "title",
-              },
-              {
-                "id": "img",
-                "html_field": {"type": "Attribute", "value": "alt"},
-                "article_field": "title",
-              },
-              {
-                "id": "img",
-                "html_field": {"type": "Attribute", "value": "src"},
-                "article_field": "img",
-              },
-              {
-                "id": "link_img",
-                "html_field": {"type": "Attribute", "value": "href"},
-                "article_field": "link",
-              },
-              {
-                "id": "link_title",
-                "html_field": {"type": "Attribute", "value": "href"},
-                "article_field": "link",
-              },
-              {
-                "id": "description",
-                "html_field": {"type": "InnerHTML"},
-                "article_field": "description",
-              },
-              {
-                "id": "date",
-                "html_field": {"type": "InnerHTML"},
-                "article_field": "date",
-              },
-              {
-                "id": "cooking-time",
-                "html_field": {"type": "InnerHTML"},
-                "article_field": "cooking-time",
-              }
-            ]
+            }
           }
+        });
+
+        const params = new URLSearchParams(window.location.search);
+        const query = params.get("query");
+
+        const filters = [];
+        for (const [key, value] of params) {
+          if (key !== "query") filters.push(value);
+        }
+        engine.set_filters(filters);
+
+        function runSearch() {
+          engine.reset();
+          if (query !== null) {
+            engine.search(query);
           }
+        }
+
+        runSearch();
+
+        document.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+          cb.addEventListener("change", () => {
+            runSearch();
+          });
         });
       });
     </script>
+
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"><h3 class=mt-2>Filtres</h3><div class=filter-bar><details class=filter-dropdown><summary>Catégories ▾</summary> <div class=filter-panel><label><input name=tags type=checkbox value=alsace> alsace</label><label><input name=tags type=checkbox value=apero> apéro</label><label><input name=tags type=checkbox value=base> base</label><label><input name=tags type=checkbox value=biscuit> biscuit</label><label><input name=tags type=checkbox value=dessert> dessert</label><label><input name=tags type=checkbox value=desserts> desserts</label><label><input name=tags type=checkbox value=epice> épicé</label><label><input name=tags type=checkbox value=ete> été</label><label><input name=tags type=checkbox value=galette> galette</label><label><input name=tags type=checkbox value=gateau> gateau</label><label><input name=tags type=checkbox value=hiver> hiver</label><label><input name=tags type=checkbox value=muffin> muffin</label><label><input name=tags type=checkbox value=noel> noël</label><label><input name=tags type=checkbox value=pancakes> pancakes</label><label><input name=tags type=checkbox value=pate> pâte</label><label><input name=tags type=checkbox value=pates> pâtes</label><label><input name=tags type=checkbox value=pizza> pizza</label><label><input name=tags type=checkbox value=plat> plat</label><label><input name=tags type=checkbox value=pst> PST</label><label><input name=tags type=checkbox value=ragout> ragoût</label><label><input name=tags type=checkbox value=sauce> sauce</label><label><input name=tags type=checkbox value=saucisse> saucisse</label><label><input name=tags type=checkbox value=tarte> tarte</label><label><input name=tags type=checkbox value=tofu> tofu</label></div></details><details class=filter-dropdown><summary>Ingrédients ▾</summary> <div class=filter-panel><label><input name=ingredients type=checkbox value=ail> ail</label><label><input name=ingredients type=checkbox value=aile> aile</label><label><input name=ingredients type=checkbox value=amande> amande</label><label><input name=ingredients type=checkbox value=avocat> avocat</label><label><input name=ingredients type=checkbox value=banane> banane</label><label><input name=ingredients type=checkbox value=bananes> bananes</label><label><input name=ingredients type=checkbox value=beurre-de-cacahuete> beurre de cacahuète</label><label><input name=ingredients type=checkbox value=bicarbonate-de-soude> bicarbonate de soude</label><label><input name=ingredients type=checkbox value=bouillon> bouillon</label><label><input name=ingredients type=checkbox value=cannelle> cannelle</label><label><input name=ingredients type=checkbox value=carotte> carotte</label><label><input name=ingredients type=checkbox value=champignon> champignon</label><label><input name=ingredients type=checkbox value=champignons> champignons</label><label><input name=ingredients type=checkbox value=chaplure> chaplure</label><label><input name=ingredients type=checkbox value=chocolat> chocolat</label><label><input name=ingredients type=checkbox value=chocolat-noir> chocolat noir</label><label><input name=ingredients type=checkbox value=citron> citron</label><label><input name=ingredients type=checkbox value=compote-de-pomme> compote de pomme</label><label><input name=ingredients type=checkbox value=concentre-de-tomate> concentré de tomate</label><label><input name=ingredients type=checkbox value=creme> crème</label><label><input name=ingredients type=checkbox value=creme-de-soja> crème de soja</label><label><input name=ingredients type=checkbox value=curry> curry</label><label><input name=ingredients type=checkbox value=eau> eau</label><label><input name=ingredients type=checkbox value=extrait-de-vanille> extrait de vanille</label><label><input name=ingredients type=checkbox value=farine> farine</label><label><input name=ingredients type=checkbox value=fecule-de-mais> fécule de maïs</label><label><input name=ingredients type=checkbox value=gingembre> gingembre</label><label><input name=ingredients type=checkbox value=haricot-vert> haricot vert</label><label><input name=ingredients type=checkbox value=herbe-de-provence> herbe de provence</label><label><input name=ingredients type=checkbox value=huile> huile</label><label><input name=ingredients type=checkbox value=huile-d-arrachide> huile d'arrachide</label><label><input name=ingredients type=checkbox value=huile-d-olive> huile d'olive</label><label><input name=ingredients type=checkbox value=huile-vegetale> huile végétale</label><label><input name=ingredients type=checkbox value=huille-de-tournesol> huille de tournesol</label><label><input name=ingredients type=checkbox value=lait-de-coco> lait de coco</label><label><input name=ingredients type=checkbox value=lait-de-soja> lait de soja</label><label><input name=ingredients type=checkbox value=lait-vegetal> lait végétal</label><label><input name=ingredients type=checkbox value=lardon> lardon</label><label><input name=ingredients type=checkbox value=laurier> laurier</label><label><input name=ingredients type=checkbox value=lentilles> lentilles</label><label><input name=ingredients type=checkbox value=levure-chimique> levure chimique</label><label><input name=ingredients type=checkbox value=levure-malte> levure malté</label><label><input name=ingredients type=checkbox value=levure-maltee> levure maltée</label><label><input name=ingredients type=checkbox value=madere> madère</label><label><input name=ingredients type=checkbox value=margarine> margarine</label><label><input name=ingredients type=checkbox value=miso> miso</label><label><input name=ingredients type=checkbox value=moutarde> moutarde</label><label><input name=ingredients type=checkbox value=muscade> muscade</label><label><input name=ingredients type=checkbox value=nouilles> nouilles</label><label><input name=ingredients type=checkbox value=oignon> oignon</label><label><input name=ingredients type=checkbox value=orange> orange</label><label><input name=ingredients type=checkbox value=origon> origon</label><label><input name=ingredients type=checkbox value=pain-d-epice> pain d'épice</label><label><input name=ingredients type=checkbox value=patate> patate</label><label><input name=ingredients type=checkbox value=patate-douce> patate douce</label><label><input name=ingredients type=checkbox value=pate> pâte</label><label><input name=ingredients type=checkbox value=pate-brisee> pâte brisée</label><label><input name=ingredients type=checkbox value=pate-feuilletee> pâte feuilletée</label><label><input name=ingredients type=checkbox value=pates> pâtes</label><label><input name=ingredients type=checkbox value=pepite-de-chocolat> pépite de chocolat</label><label><input name=ingredients type=checkbox value=pesto> pesto</label><label><input name=ingredients type=checkbox value=piment-d-espelette> piment d'espelette</label><label><input name=ingredients type=checkbox value=piment-de-cayenne> piment de cayenne</label><label><input name=ingredients type=checkbox value=poireau> poireau</label><label><input name=ingredients type=checkbox value=poivron> poivron</label><label><input name=ingredients type=checkbox value=pomme-de-terre> pomme de terre</label><label><input name=ingredients type=checkbox value=proteine-de-soja-texturee> protéine de soja texturée</label><label><input name=ingredients type=checkbox value=pst> PST</label><label><input name=ingredients type=checkbox value=puree-de-tomate> purée de tomate</label><label><input name=ingredients type=checkbox value=puree-de-tomates> purée de tomates</label><label><input name=ingredients type=checkbox value=riz> riz</label><label><input name=ingredients type=checkbox value=riz-a-risotto> riz à risotto</label><label><input name=ingredients type=checkbox value=sarrasin> sarrasin</label><label><input name=ingredients type=checkbox value=sauce-soja> sauce soja</label><label><input name=ingredients type=checkbox value=saucisse> saucisse</label><label><input name=ingredients type=checkbox value=sirop-d-erable> sirop d'érable</label><label><input name=ingredients type=checkbox value=sucre> sucre</label><label><input name=ingredients type=checkbox value=sucre-glace> sucre glace</label><label><input name=ingredients type=checkbox value=sucre-roux> sucre roux</label><label><input name=ingredients type=checkbox value=tandoori> tandoori</label><label><input name=ingredients type=checkbox value=tofu> tofu</label><label><input name=ingredients type=checkbox value=tofu-epice> tofu épicé</label><label><input name=ingredients type=checkbox value=tomate> tomate</label><label><input name=ingredients type=checkbox value=vanille> vanille</label><label><input name=ingredients type=checkbox value=yaourt-soja> yaourt soja</label><label><input name=ingredients type=checkbox value=zeste-d-orange> zeste d'orange</label></div></details><details class=filter-dropdown><summary>Saisons ▾</summary> <div class=filter-panel><label><input name=seasons type=checkbox value=automne> automne</label><label><input name=seasons type=checkbox value=ete> été</label><label><input name=seasons type=checkbox value=hiver> hiver</label></div></details><details class=filter-dropdown><summary>Ustensiles ▾</summary> <div class=filter-panel><label><input name=tools type=checkbox value=four> four</label></div></details></div></div>
 <div class="flex flex-col rounded-md shadow-md overflow-hidden hidden"  id="element">
   <div class="flex-shrink-0">
     <a href="" aria-label="Sans titre" id="link_img">
@@ -112,4 +103,3 @@
 
 </body>
 </html>
-

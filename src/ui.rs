@@ -1,9 +1,10 @@
 use serde::Deserialize;
+use std::collections::{HashMap, HashSet};
 use thiserror::Error;
 use wasm_bindgen::prelude::*;
-use web_sys::{window, Document, Element, Node, UrlSearchParams, Window};
+use web_sys::{window, Document, Element, Node, Window};
 
-use crate::search::Article;
+use crate::{log, search::Article};
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct EditConfig {
@@ -96,6 +97,56 @@ impl Edit for web_sys::Element {
 }
 
 impl Ui {
+    pub fn load_filters(&self) -> HashMap<String, HashSet<String>> {
+        let mut filters: HashMap<String, HashSet<String>> = HashMap::new();
+
+        if let Ok(nodes) = self
+            .document
+            .query_selector_all("input[type=\"checkbox\"]:checked")
+        {
+            for i in 0..nodes.length() {
+                if let Some(element) = nodes.item(i).and_then(|n| n.dyn_into::<Element>().ok()) {
+                    let taxonomy = element.get_attribute("name");
+                    let term = element.get_attribute("value");
+                    if let (Some(tax), Some(term)) = (taxonomy, term) {
+                        filters.entry(tax).or_default().insert(term);
+                    }
+                }
+            }
+        }
+
+        filters
+    }
+
+    pub fn set_filters(&self, filters: &[String]) {
+        if let Ok(nodes) = self.document.query_selector_all("input[type=\"checkbox\"]") {
+            for i in 0..nodes.length() {
+                if let Some(input) = nodes.item(i).and_then(|n| n.dyn_into::<Element>().ok()) {
+                    let _ = input.remove_attribute("checked");
+                }
+            }
+        }
+
+        for filter in filters {
+            if let Some((taxonomy, term)) = filter.split_once(':') {
+                let selector = format!(
+                    "input[type=\"checkbox\"][name=\"{}\"][value=\"{}\"]",
+                    taxonomy, term
+                );
+                log(selector.clone());
+                if let Ok(Some(input)) = self.document.query_selector(&selector) {
+                    let _ = input.set_attribute("checked", "");
+                }
+            }
+        }
+    }
+
+    pub fn reset(&self) {
+        if let Some(list) = self.document.get_element_by_id(&self.config.list_id) {
+            list.set_inner_html("");
+        }
+    }
+
     pub fn new(config: &Config) -> Self {
         let window = window().expect("no global `window` exists");
         let document = window.document().expect("should have a document on window");
@@ -104,16 +155,6 @@ impl Ui {
             document,
             config: config.page.clone(),
         }
-    }
-
-    pub fn get_querry(&self) -> Result<String, Error> {
-        let search = self
-            .window
-            .location()
-            .search()
-            .map_err(|_| Error::NoSearch)?;
-        let params = UrlSearchParams::new_with_str(&search).map_err(|_| Error::NoSearch)?;
-        params.get("q").ok_or(Error::NoSearch)
     }
 
     pub fn display(&self, article: &Article) -> Result<(), Error> {
