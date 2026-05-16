@@ -4,7 +4,7 @@ use thiserror::Error;
 use wasm_bindgen::prelude::*;
 use web_sys::{window, Document, Element, Node, Window};
 
-use crate::{log, search::Article};
+use crate::search::Article;
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct EditConfig {
@@ -38,8 +38,6 @@ pub enum Error {
     CannotCast { node: Node },
     #[error("Cannot set attribute {attr} in element {element:?}")]
     CannotSetAttribute { attr: String, element: Element },
-    #[error("No search exist")]
-    NoSearch,
 }
 
 #[derive(Clone, Debug)]
@@ -97,7 +95,17 @@ impl Edit for web_sys::Element {
 }
 
 impl Ui {
-    pub fn load_filters(&self) -> HashMap<String, HashSet<String>> {
+    pub fn new(config: &Config) -> Self {
+        let window = window().expect("no global `window` exists");
+        let document = window.document().expect("should have a document on window");
+        Self {
+            window,
+            document,
+            config: config.page.clone(),
+        }
+    }
+
+    pub fn get_filters_html(&self) -> HashMap<String, HashSet<String>> {
         let mut filters: HashMap<String, HashSet<String>> = HashMap::new();
 
         if let Ok(nodes) = self
@@ -118,7 +126,7 @@ impl Ui {
         filters
     }
 
-    pub fn set_filters(&self, filters: &[String]) {
+    pub fn set_filters_html(&self, filters: &HashMap<String, HashSet<String>>) {
         if let Ok(nodes) = self.document.query_selector_all("input[type=\"checkbox\"]") {
             for i in 0..nodes.length() {
                 if let Some(input) = nodes.item(i).and_then(|n| n.dyn_into::<Element>().ok()) {
@@ -127,13 +135,12 @@ impl Ui {
             }
         }
 
-        for filter in filters {
-            if let Some((taxonomy, term)) = filter.split_once(':') {
+        for (taxonomy, terms) in filters {
+            for term in terms {
                 let selector = format!(
                     "input[type=\"checkbox\"][name=\"{}\"][value=\"{}\"]",
                     taxonomy, term
                 );
-                log(selector.clone());
                 if let Ok(Some(input)) = self.document.query_selector(&selector) {
                     let _ = input.set_attribute("checked", "");
                 }
@@ -147,14 +154,67 @@ impl Ui {
         }
     }
 
-    pub fn new(config: &Config) -> Self {
-        let window = window().expect("no global `window` exists");
-        let document = window.document().expect("should have a document on window");
-        Self {
-            window,
-            document,
-            config: config.page.clone(),
+    pub fn set_filters_url(&self, filters: &HashMap<String, HashSet<String>>) {
+        let location = self.window.location();
+        let pathname = location.pathname().unwrap_or_default();
+        let current_query = location
+            .search()
+            .ok()
+            .and_then(|s| {
+                let params = web_sys::UrlSearchParams::new_with_str(&s).ok()?;
+                params.get("query")
+            })
+            .unwrap_or_default();
+
+        let mut url = format!("{}?query={}", pathname, current_query);
+        for (taxonomy, terms) in filters {
+            let terms_str: Vec<&str> = terms.iter().map(|s| s.as_str()).collect();
+            url.push_str(&format!("&filter={}:{}", taxonomy, terms_str.join(",")));
         }
+
+        if let Ok(history) = self.window.history() {
+            let _ = history.replace_state_with_url(&JsValue::NULL, "", Some(&url));
+        }
+    }
+
+    fn url_search(&self) -> Option<String> {
+        self.window.location().search().ok()
+    }
+
+    fn parse_filter_param(value: &str, filters: &mut HashMap<String, HashSet<String>>) {
+        let Ok(decoded) = js_sys::decode_uri_component(value) else {
+            return;
+        };
+        let value = decoded.as_string().unwrap_or_default();
+        let Some((taxonomy, terms)) = value.split_once(':') else {
+            return;
+        };
+        for term in terms.split(',') {
+            filters
+                .entry(taxonomy.to_string())
+                .or_default()
+                .insert(term.to_string());
+        }
+    }
+
+    pub fn get_filters_url(&self) -> HashMap<String, HashSet<String>> {
+        let search = match self.url_search() {
+            Some(s) => s,
+            None => return HashMap::new(),
+        };
+        let mut filters: HashMap<String, HashSet<String>> = HashMap::new();
+        for pair in search
+            .trim_start_matches('?')
+            .split('&')
+            .filter(|s| !s.is_empty())
+        {
+            if let Some((key, value)) = pair.split_once('=') {
+                if key == "filter" {
+                    Self::parse_filter_param(value, &mut filters);
+                }
+            }
+        }
+        filters
     }
 
     pub fn display(&self, article: &Article) -> Result<(), Error> {

@@ -62,18 +62,29 @@ impl SearchEngine {
         serde_wasm_bindgen::to_value(&articles).unwrap_or(JsValue::UNDEFINED)
     }
 
-    pub fn load_filters(&self) -> JsValue {
-        let filters = self.ui.load_filters();
+    pub fn get_filters_html(&self) -> JsValue {
+        let filters = self.ui.get_filters_html();
         serde_wasm_bindgen::to_value(&filters).unwrap_or(JsValue::UNDEFINED)
     }
 
-    pub fn set_filters(&self, filters_js: JsValue) {
-        let filters: Vec<String> = serde_wasm_bindgen::from_value(filters_js).unwrap_or_default();
-        log(format!("{filters:#?}"));
-        self.ui.set_filters(&filters);
+    pub fn set_filters_html(&self, filters_js: JsValue) {
+        let filters: HashMap<String, HashSet<String>> =
+            serde_wasm_bindgen::from_value(filters_js).unwrap_or_default();
+        self.ui.set_filters_html(&filters);
     }
 
     pub fn reset(&self) {
         self.ui.reset();
+    }
+
+    pub fn set_filters_url(&self, filters_js: JsValue) {
+        let filters: HashMap<String, HashSet<String>> =
+            serde_wasm_bindgen::from_value(filters_js).unwrap_or_default();
+        self.ui.set_filters_url(&filters);
+    }
+
+    pub fn get_filters_url(&self) -> JsValue {
+        let filters = self.ui.get_filters_url();
+        serde_wasm_bindgen::to_value(&filters).unwrap_or(JsValue::UNDEFINED)
     }
 }

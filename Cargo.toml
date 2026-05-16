@@ -30,7 +30,8 @@ web-sys = {version = "0.3.95", features = [
     "Location",
     "Node",
     "UrlSearchParams",
-    "NodeList"
+    "NodeList",
+    "History"
 ]}
 fuzzy-matcher = "0.3.7"
 thiserror = "2.0.18"

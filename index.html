@@ -49,25 +49,22 @@
         const params = new URLSearchParams(window.location.search);
         const query = params.get("query");
 
-        const filters = [];
-        for (const [key, value] of params) {
-          if (key !== "query") filters.push(value);
-        }
-        engine.set_filters(filters);
+        const filters = engine.get_filters_url();
+        engine.set_filters_html(filters);
 
         function runSearch() {
           engine.reset();
+          const filters = engine.get_filters_html();
+          engine.set_filters_url(filters);
           if (query !== null) {
-            engine.search(query);
+            engine.search_with_filters(query, filters);
           }
         }
 
         runSearch();
 
         document.querySelectorAll('input[type="checkbox"]').forEach(cb => {
-          cb.addEventListener("change", () => {
-            runSearch();
-          });
+          cb.addEventListener("change", runSearch);
         });
       });
     </script>
