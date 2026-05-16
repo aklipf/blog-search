@@ -1,5 +1,5 @@
 use crate::search;
-use crate::ui::{self, Field};
+use crate::ui;
 use serde::Deserialize;
 
 #[derive(Deserialize, Debug)]

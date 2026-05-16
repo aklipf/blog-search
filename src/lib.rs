@@ -31,10 +31,12 @@ pub async fn run(config: JsValue) -> Result<(), JsValue> {
     };
 
     let query = ui.get_querry().unwrap();
+    let tokens = search.tokenize(&query);
+    let (filters, rank_tokens) = search.detect_filters(&tokens);
 
-    let articles = search.search(query.as_str());
+    let articles = search.search(&rank_tokens, &filters);
     for article in articles.iter() {
-        ui.display(article);
+        let _ = ui.display(article);
     }
 
     Ok(())

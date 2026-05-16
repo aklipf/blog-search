@@ -1,21 +1,20 @@
 use serde::Deserialize;
 use thiserror::Error;
 use wasm_bindgen::prelude::*;
-use web_sys::{Document, Element, Node, Window, window};
+use web_sys::{window, Document, Element, Node, UrlSearchParams, Window};
 
 use crate::search::Article;
 
-
 #[derive(Deserialize, Debug, Clone)]
-pub struct EditConfig{
+pub struct EditConfig {
     id: String,
     html_field: Field,
     article_field: String,
 }
 
 #[derive(Deserialize, Debug, Clone)]
-pub struct Config{
-    page: PageConfig
+pub struct Config {
+    page: PageConfig,
 }
 
 #[derive(Deserialize, Debug, Clone)]
@@ -88,7 +87,10 @@ impl Edit for web_sys::Element {
             }
             Field::Attribute(attr) => element
                 .set_attribute(attr.as_str(), value.as_ref())
-                .map_err(|_| Error::CannotSetAttribute { attr:attr.clone(), element }),
+                .map_err(|_| Error::CannotSetAttribute {
+                    attr: attr.clone(),
+                    element,
+                }),
         }
     }
 }
@@ -97,27 +99,30 @@ impl Ui {
     pub fn new(config: &Config) -> Self {
         let window = window().expect("no global `window` exists");
         let document = window.document().expect("should have a document on window");
-        Self { window, document ,config:config.page.clone()}
+        Self {
+            window,
+            document,
+            config: config.page.clone(),
+        }
     }
 
     pub fn get_querry(&self) -> Result<String, Error> {
-        self.window
+        let search = self
+            .window
             .location()
             .search()
-            .map_err(|_| Error::NoSearch)?
-            .trim_start_matches('?')
-            .split("&")
-            .filter_map(|arg| arg.strip_prefix("q="))
-            .map(|q| q.to_string())
-            .next()
-            .ok_or(Error::NoSearch)
+            .map_err(|_| Error::NoSearch)?;
+        let params = UrlSearchParams::new_with_str(&search).map_err(|_| Error::NoSearch)?;
+        params.get("q").ok_or(Error::NoSearch)
     }
 
     pub fn display(&self, article: &Article) -> Result<(), Error> {
         let list = self
             .document
             .get_element_by_id(self.config.list_id.as_str())
-            .ok_or(Error::IdNotFound { id: self.config.template_id.clone() })?;
+            .ok_or(Error::IdNotFound {
+                id: self.config.template_id.clone(),
+            })?;
 
         let template = self
             .document
@@ -132,9 +137,9 @@ impl Ui {
         let card: Element = node_template
             .dyn_into()
             .map_err(|node| Error::CannotCast { node })?;
-        card.remove_attribute("id");
+        let _ = card.remove_attribute("id");
 
-        for edit in &self.config.edit{
+        for edit in &self.config.edit {
             let value = article.fields.get(&edit.article_field).unwrap();
             card.edit(edit.id.as_str(), &edit.html_field, value)?;
         }

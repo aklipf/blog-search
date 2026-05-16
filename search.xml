@@ -3,6 +3,7 @@
 
 
 
+<search>
 <taxonomies>
   <item>
     <name>tags</name>
@@ -103,7 +104,7 @@
         <name>tofu</name>
         <link>https://vegan.astrid-klipfel.fr/search/?q=tofu</link>
       </item>
-    <terms>
+    </terms>
   </item>
   <item>
     <name>ingredients</name>
@@ -452,7 +453,7 @@
         <name>zeste d&apos;orange</name>
         <link>https://vegan.astrid-klipfel.fr/search/?q=zeste d&#x27;orange</link>
       </item>
-    <terms>
+    </terms>
   </item>
   <item>
     <name>seasons</name>
@@ -469,7 +470,7 @@
         <name>hiver</name>
         <link>https://vegan.astrid-klipfel.fr/search/?q=hiver</link>
       </item>
-    <terms>
+    </terms>
   </item>
   <item>
     <name>tools</name>
@@ -478,7 +479,7 @@
         <name>four</name>
         <link>https://vegan.astrid-klipfel.fr/search/?q=four</link>
       </item>
-    <terms>
+    </terms>
   </item>
 </taxonomies>
 <pages>
@@ -908,3 +909,4 @@
     </taxonomies>
   </item>
 </pages>
+</search>
