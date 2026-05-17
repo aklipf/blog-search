@@ -1,4 +1,5 @@
 use std::collections::{HashMap, HashSet};
+use std::panic;
 use wasm_bindgen::prelude::*;
 use web_sys::console;
 
@@ -16,15 +17,22 @@ pub fn log(log: String) {
     console::log(&array);
 }
 
+pub fn error(error: String) {
+    let array = js_sys::Array::new();
+    array.push(&error.into());
+
+    console::error(&array);
+}
+
 #[wasm_bindgen]
-pub async fn load(config: JsValue) -> Result<SearchEngine, JsValue> {
-    let config: Config = serde_wasm_bindgen::from_value(config)?;
-    let inner = search::SearchEngin::new(&config.search)
-        .await
-        .map_err(|e| JsValue::from_str(&format!("{e:?}")))?;
+pub async fn load(config: JsValue) -> SearchEngine {
+    panic::set_hook(Box::new(console_error_panic_hook::hook));
+
+    let config: Config = serde_wasm_bindgen::from_value(config).unwrap();
+    let inner = search::SearchEngin::new(&config.search).await.unwrap();
     let ui = Ui::new(&config.ui);
 
-    Ok(SearchEngine { inner, ui })
+    SearchEngine { inner, ui }
 }
 
 #[wasm_bindgen]
@@ -46,9 +54,9 @@ impl SearchEngine {
     pub fn search(&self, query: &str) -> JsValue {
         let articles = self.search_articles(query);
         for article in articles.iter() {
-            let _ = self.ui.display(article);
+            self.ui.display(article).unwrap();
         }
-        serde_wasm_bindgen::to_value(&articles).unwrap_or(JsValue::UNDEFINED)
+        serde_wasm_bindgen::to_value(&articles).unwrap()
     }
 
     pub fn search_with_filters(&self, query: &str, filters_js: JsValue) -> JsValue {
@@ -57,14 +65,15 @@ impl SearchEngine {
             serde_wasm_bindgen::from_value(filters_js).unwrap_or_default();
         let articles = self.inner.search(&tokens, &filters);
         for article in articles.iter() {
-            let _ = self.ui.display(article);
+            log(format!("article {article:#?}"));
+            self.ui.display(article).unwrap();
         }
-        serde_wasm_bindgen::to_value(&articles).unwrap_or(JsValue::UNDEFINED)
+        serde_wasm_bindgen::to_value(&articles).unwrap()
     }
 
     pub fn get_filters_html(&self) -> JsValue {
         let filters = self.ui.get_filters_html();
-        serde_wasm_bindgen::to_value(&filters).unwrap_or(JsValue::UNDEFINED)
+        serde_wasm_bindgen::to_value(&filters).unwrap()
     }
 
     pub fn set_filters_html(&self, filters_js: JsValue) {

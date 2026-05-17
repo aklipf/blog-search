@@ -35,4 +35,5 @@ web-sys = {version = "0.3.95", features = [
 ]}
 fuzzy-matcher = "0.3.7"
 thiserror = "2.0.18"
+console_error_panic_hook = "0.1.7"
 

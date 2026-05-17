@@ -222,14 +222,14 @@ impl Ui {
             .document
             .get_element_by_id(self.config.list_id.as_str())
             .ok_or(Error::IdNotFound {
-                id: self.config.template_id.clone(),
+                id: self.config.list_id.clone(),
             })?;
 
         let template = self
             .document
             .get_element_by_id(self.config.template_id.as_str())
             .ok_or(Error::IdNotFound {
-                id: self.config.list_id.clone(),
+                id: self.config.template_id.clone(),
             })?;
 
         let node_template = template
